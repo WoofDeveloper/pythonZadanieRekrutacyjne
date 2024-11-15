@@ -1,92 +1,92 @@
 import openai
 import os
 from dotenv import load_dotenv
+from bs4 import BeautifulSoup
+# import ipdb
 
 
-# Klucz API
+# API key passed from file .env
 load_dotenv()
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
-# Funkcja odczytująca artykuł z pliku tekstowego
+# Function that reads an article from a text file
 def read_article(file_path):
     with open(file_path, 'r', encoding='utf-8') as file:
         return file.read()
 
-def clean_html_code(html_code):
-    # Usuwamy znaczniki ```html z początku oraz ``` z końca
-    if html_code.startswith("```"):
-        html_code = html_code[7:]  # Usuwa "```html\n"
-    if html_code.endswith("```"):
-        html_code = html_code[:-3]  # Usuwa końcowe "```"
-    return html_code.strip()  # Usuwamy ewentualne białe znaki na końcach
-
-# Funkcja generująca kod HTML na podstawie treści artykułu i promptu
+# A function that generates HTML code based on the content of the article and the prompt
 def generate_html(article_text):
+    article_text = article_text.replace("\n", " ")
     prompt = (
-        # f"Stwórz HTML dla następującego artykułu. Kod ma być zgodny HMTL5. Zawżyj i podziel treść artykułu na <section>, <h> i <p>."
-        # f"Zaproponuj mi gdzie można wstawić znaczniki <img>."
-        # f"Dodaj placeholdery < img src='image_placeholder.jpg' alt='' >"
-        # f"w miejscach, gdzie można by wstawić grafiki. Treść artykułu: {article_text}. Treść ma być cała."
-        # f"W atrybucie alt generuj prompt generujący image. Każdy alt musi być wypełniony."
-        # #f"Zamieść wynik w znacznikach <body></body>. Nie generuj <html> i <head>, nie dodawaj ```html i ```"
-        # f"Zwrócony kod powinien zawierać wyłącznie zawartość do wstawienia pomiędzy tagami <body> i </body>. Nie dołączaj znaczników <html>, <head>, <body> ani html"
-        f"Generate HTML code based on the provided text file content {article_text}.Follow these guidelines:"
+        f"Generate HTML code based on the provided text file content {article_text}. Follow these guidelines:"
         f"1. Identify distinct sections based on text structure or paragraph breaks."
         f"2. For each identified section:"
-        f"- Create a < section > tag."
-        f"- Use the first line of each section as an < h2 > heading."
-        f"- Wrap each remaining paragraph in < p > tags."
-        f"3. Insert an < img > tag at the end of each section with src='image_placeholder.jpg' and an appropriate alt text based on the heading add on the begaing text image."
+        f"- Create a <section> tag."
+        f"- Use the first line of each section as an <h2> heading."
+        f"- Wrap each remaining paragraph in <p> tags."
+        f"3. Insert an <img> tag at the end of each section with src='image_placeholder.jpg' and an appropriate alt text based on the heading."
+        f"4. Add a <figcaption> tag below each <img> tag with a brief description or note for the image. Use the section heading as a reference for the description."
+        f"5. If the line starts with '*', wrap it in <p> and <em>."
+        f"6. The alt attribute must always start with the word 'Image' followed by a short description based on the section heading. "
         f"Ensure the structure resembles this format:"
-        f"< section >"
-        f"< h2 > Title from First Line of Section < / h2 >"
-        f"< p > First paragraph of content for this section.< / p >"
-        f"< p > Second paragraph, and so on.< / p >"
-        f"< img src='image_placeholder.jpg' alt='Description for this section' >"
-        f"< / section >"
-        f"Apply this structure to all sections in the text file, creating a clean HTML layout for each section with headings and paragraphs."
+        f"<section>"
+        f"  <h2>Title from First Line of Section</h2>"
+        f"  <p>First paragraph of content for this section.</p>"
+        f"  <p>Second paragraph, and so on.</p>"
+        f"  <figure>"
+        f"    <img src='image_placeholder.jpg' alt='Description for this section'>"
+        f"    <figcaption>Description for this image, based on the section heading.</figcaption>"
+        f"  </figure>"
+        f"</section>"
+        f"Apply this structure to all sections in the text file, creating a clean HTML layout for each section with headings, paragraphs, images, and captions."
     )
 
     try:
         response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
+            model="gpt-4o",
             messages=[
                 {"role": "system", "content": "You are a helpful assistant."},
                 {"role": "user", "content": prompt}
             ],
-            max_tokens=3000
+            max_tokens=10000
         )
-        # Odbierz wygenerowany tekst z API
+
+
+        # Receiving generated text from the API
         generated_html = response['choices'][0]['message']['content'].strip()
 
-        # Oczyść kod HTML z bloków ```html i ```
-        cleaned_html = clean_html_code(generated_html)
+        # Clean HTML code from html blocks
+        beauty = BeautifulSoup(generated_html, 'html.parser')
+        length_of_generated_html = len(beauty.contents)
+        cleaned_html = ''.join([
+            str(tag) for tag in beauty.contents[1:length_of_generated_html-1]
+        ])
 
         return cleaned_html
     except Exception as e:
         print(f"An error occurred: {e}")
         return ""
 
-# Funkcja zapisująca wygenerowany HTML do pliku
+# A function that saves the generated HTML to a file
 def save_html(content, output_path):
     with open(output_path, 'w', encoding='utf-8') as file:
         file.write(content)
 
-# Główna funkcja aplikacji
+
 def main():
-    # Ścieżka do pliku z artykułem
+    # Path to the article file
     article_path = 'tresc_artykulu.txt'
-    # Ścieżka do zapisu wygenerowanego pliku HTML
+    # Path to save the generated HTML file
     output_path = 'artykul.html'
 
-    # Wczytaj pliki
+    # Load files
     article_text = read_article(article_path)
-    # Wygeneruj HTML
+    # Generate HTML
     generated_html = generate_html(article_text)
-    # Zapisz wygenerowany HTML do pliku
+    # Save the generated HTML to a file
     save_html(generated_html, output_path)
 
-    print(f"Wygenerowany kod HTML zapisano w pliku {output_path}")
+    print(f"The generated HTML code is saved in a file {output_path}")
 
 if __name__ == "__main__":
     main()
