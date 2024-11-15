@@ -1,7 +1,10 @@
+from pydoc import importfile
+
 import openai
 import os
 from dotenv import load_dotenv
 from bs4 import BeautifulSoup
+
 # import ipdb
 
 
@@ -74,10 +77,10 @@ def save_html(content, output_path):
 
 
 def main():
-    # Path to the article file
-    article_path = 'tresc_artykulu.txt'
+    # Path to the article file and szablon
+    article_path = 'data/tresc_artykulu.txt'
     # Path to save the generated HTML file
-    output_path = 'artykul.html'
+    output_path = 'result/artykul.html'
 
     # Load files
     article_text = read_article(article_path)
